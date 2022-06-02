@@ -1,0 +1,116 @@
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+env:
+  workspaceName: titanicWorkspace5
+  pipelineName: titanicPipeline5
+
+name: Publish Power BI Dashboard
+
+jobs:
+  Create-Pipeline:
+    name: Create-Pipeline
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@main
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v19
+        with:
+          separator: ","
+          quotepath: "false"
+      
+      - name: setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: 'Run pip'
+        shell: bash
+        run: |
+          pushd .
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          popd
+      - name: Upload files with inline python
+        run: |
+          Install-Module -Name MicrosoftPowerBIMgmt -force
+          $password = ${{ secrets.AZURE_PASSWORD }} | ConvertTo-SecureString -asPlainText -Force
+          $username = ${{ secrets.AZURE_USERNAME }}
+          $credential = New-Object System.Management.Automation.PSCredential($username, $password)
+          Connect-PowerBIServiceAccount -Credential $credential
+          $accessToken = Get-PowerBIAccessToken
+
+          $workspaceName = "${{ env.workspaceName }}"
+          $pipelineName = "${{ env.pipelineName }}"
+
+          echo "
+          # ========================================
+          # Create dev, test, prod workspaces if not already
+          # ========================================"
+          python .\create_workspace.py --accessToken $accessToken.Authorization --workspaceName $workspaceName"[DEV]"
+          python .\create_workspace.py --accessToken $accessToken.Authorization --workspaceName $workspaceName"[TEST]"
+          python .\create_workspace.py --accessToken $accessToken.Authorization --workspaceName $workspaceName"[PROD]"
+
+          echo "
+          # ========================================
+          # Upload changed files to workspace
+          # ========================================"
+          python .\upload_pbix.py --accessToken $accessToken.Authorization --files ${{ steps.changed-files.outputs.all_modified_files }} --workspaceName $workspaceName"[DEV]"
+          python .\upload_pbix.py --accessToken $accessToken.Authorization --files ${{ steps.changed-files.outputs.all_modified_files }} --workspaceName $workspaceName"[TEST]"
+          python .\upload_pbix.py --accessToken $accessToken.Authorization --files ${{ steps.changed-files.outputs.all_modified_files }} --workspaceName $workspaceName"[PROD]"
+
+          echo "
+          # ========================================
+          # Create pipeline if not already
+          # ========================================"
+          python .\create_pipeline.py --accessToken $accessToken.Authorization --pipelineName $pipelineName
+
+          echo "
+          # ========================================
+          # Assign workspaces to pipeline stages
+          # ========================================"
+          python .\assign_workspace_to_pipeline.py --accessToken $accessToken.Authorization --workspaceName $workspaceName"[DEV]" --pipelineName $pipelineName --stageOrder 0
+          python .\assign_workspace_to_pipeline.py --accessToken $accessToken.Authorization --workspaceName $workspaceName"[TEST]" --pipelineName $pipelineName --stageOrder 1
+          python .\assign_workspace_to_pipeline.py --accessToken $accessToken.Authorization --workspaceName $workspaceName"[PROD]" --pipelineName $pipelineName --stageOrder 2
+
+          echo "
+          # ========================================
+          # Deploy Dev to Test
+          # ========================================"
+          $pipelines = (Invoke-PowerBIRestMethod -Url "pipelines"  -Method Get | ConvertFrom-Json).value
+          $pipeline = $pipelines | Where-Object {$_.DisplayName -eq $pipelineName}
+
+          $body = @{
+              "sourceStageOrder" = 0
+              "options"= @{
+                  "allowOverwriteArtifact" = $TRUE
+                  "allowCreateArtifact" = $TRUE
+              }
+          } | ConvertTo-Json
+
+          $url = "pipelines/{0}/deployAll" -f $pipeline.id
+          $deployResult = Invoke-PowerBIRestMethod -Url $url  -Method Post -Body $body | ConvertFrom-Json
+
+          sleep 60
+          
+          echo "
+          # ========================================
+          Write-Host Deploy Dev to Test
+          # ========================================"
+          $pipelines = (Invoke-PowerBIRestMethod -Url "pipelines"  -Method Get | ConvertFrom-Json).value
+          $pipeline = $pipelines | Where-Object {$_.DisplayName -eq $pipelineName}
+
+          $body = @{
+              "sourceStageOrder" = 1
+              "options"= @{
+                  "allowOverwriteArtifact" = $TRUE
+                  "allowCreateArtifact" = $TRUE
+              }
+          } | ConvertTo-Json
+
+          $url = "pipelines/{0}/deployAll" -f $pipeline.id
+          $deployResult = Invoke-PowerBIRestMethod -Url $url  -Method Post -Body $body | ConvertFrom-Json
