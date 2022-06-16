@@ -35,7 +35,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           popd
-      - name: Upload files with inline python
+      - name: End-to-end power bi deployment
         run: |
           Install-Module -Name MicrosoftPowerBIMgmt -force
           $password = ${{ secrets.AZURE_PASSWORD }} | ConvertTo-SecureString -asPlainText -Force
