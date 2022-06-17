@@ -18,7 +18,7 @@ response = requests.request("GET", url=url, headers=headers)
 workspace_exist = False
 for resp in response.json().get("value"):
     if resp.get("name") == workspace_name:
-        print(f"Workspace name {workspace_name} already exists! Goodbye!")
+        print(f"Workspace name {workspace_name} already exists!")
         workspace_exist = True
         break
 

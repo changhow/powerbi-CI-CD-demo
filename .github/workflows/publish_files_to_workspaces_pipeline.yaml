@@ -1,0 +1,58 @@
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.github/workflows/**'
+      - 'scripts/**'
+
+env:
+  workspaceName: titanicWorkspace
+  pipelineName: titanicPipeline
+
+name: Publish Files to Workspace
+
+jobs:
+  Upload-Files-to-Workspaces:
+    name: Upload-Files-to-Workspaces
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@main
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v19
+        with:
+          separator: ","
+          quotepath: "false"
+      
+      - name: setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: 'Run pip'
+        shell: bash
+        run: |
+          pushd .
+          python -m pip install --upgrade pip
+          pip install -r scripts/requirements.txt
+          popd
+      - name: Upload changed files to workspace
+        run: |
+          Install-Module -Name MicrosoftPowerBIMgmt -force
+          $password = ${{ secrets.AZURE_PASSWORD }} | ConvertTo-SecureString -asPlainText -Force
+          $username = ${{ secrets.AZURE_USERNAME }}
+          $credential = New-Object System.Management.Automation.PSCredential($username, $password)
+          Connect-PowerBIServiceAccount -Credential $credential
+          $accessToken = Get-PowerBIAccessToken
+
+          $workspaceName = "${{ env.workspaceName }}"
+          $pipelineName = "${{ env.pipelineName }}"
+          
+          echo "
+          # ========================================
+          # Upload changed files to workspace
+          # ========================================"
+          python .\scripts\upload_pbix.py --accessToken $accessToken.Authorization --files "${{ steps.changed-files.outputs.all_modified_files }}" --workspaceName $workspaceName --pipelineName $pipelineName
+          

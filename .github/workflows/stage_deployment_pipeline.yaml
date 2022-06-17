@@ -1,0 +1,66 @@
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/stage_deployment_pipeline.yaml'
+
+env:
+  workspaceName: titanicWorkspace
+  pipelineName: titanicPipeline
+  sourceStageOrder: 1 # 0 - Deploy Dev to Test, 1 - Deploy Test to Prod
+
+name: Pipeline stage deployment
+
+jobs:
+  Pipeline-Stage-Deployment:
+    name: Pipeline-Stage-Deployment
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@main
+      
+      - name: setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: 'Run pip'
+        shell: bash
+        run: |
+          pushd .
+          python -m pip install --upgrade pip
+          pip install -r scripts/requirements.txt
+          popd
+      - name: Deploy pipeline stage
+        run: |
+          Install-Module -Name MicrosoftPowerBIMgmt -force
+          $password = ${{ secrets.AZURE_PASSWORD }} | ConvertTo-SecureString -asPlainText -Force
+          $username = ${{ secrets.AZURE_USERNAME }}
+          $credential = New-Object System.Management.Automation.PSCredential($username, $password)
+          Connect-PowerBIServiceAccount -Credential $credential
+          $accessToken = Get-PowerBIAccessToken
+
+          $workspaceName = "${{ env.workspaceName }}"
+          $pipelineName = "${{ env.pipelineName }}"
+          $stageOrder = ${{ env.sourceStageOrder }}
+
+          echo "
+          # ========================================
+          # Deploy Pipeline Stage
+          # ========================================"
+          $pipelines = (Invoke-PowerBIRestMethod -Url "pipelines"  -Method Get | ConvertFrom-Json).value
+          $pipeline = $pipelines | Where-Object {$_.DisplayName -eq $pipelineName}
+
+          $body = @{
+              "sourceStageOrder" = $stageOrder
+              "options"= @{
+                  "allowOverwriteArtifact" = $TRUE
+                  "allowCreateArtifact" = $TRUE
+              }
+              # "updateAppSettings" = @{
+              #       "updateAppInTargetWorkspace" = $TRUE
+              # }
+          } | ConvertTo-Json
+
+          $url = "pipelines/{0}/deployAll" -f $pipeline.id
+          $deployResult = Invoke-PowerBIRestMethod -Url $url  -Method Post -Body $body | ConvertFrom-Json

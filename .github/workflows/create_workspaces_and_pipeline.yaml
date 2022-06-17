@@ -1,0 +1,61 @@
+on:
+  workflow_dispatch:
+
+env:
+  workspaceName: titanicWorkspace
+  pipelineName: titanicPipeline
+
+name: Create Workspaces and Pipeline
+
+jobs:
+  Create-Workspace-Pipeline:
+    name: Create-Workspace-Pipeline
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@main
+      
+      - name: setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: 'Run pip'
+        shell: bash
+        run: |
+          pushd .
+          python -m pip install --upgrade pip
+          pip install -r scripts/requirements.txt
+          popd
+      - name: Create workspace and pipeline
+        run: |
+          Install-Module -Name MicrosoftPowerBIMgmt -force
+          $password = ${{ secrets.AZURE_PASSWORD }} | ConvertTo-SecureString -asPlainText -Force
+          $username = ${{ secrets.AZURE_USERNAME }}
+          $credential = New-Object System.Management.Automation.PSCredential($username, $password)
+          Connect-PowerBIServiceAccount -Credential $credential
+          $accessToken = Get-PowerBIAccessToken
+
+          $workspaceName = "${{ env.workspaceName }}"
+          $pipelineName = "${{ env.pipelineName }}"
+
+          echo "
+          # ========================================
+          # Create dev, test, prod workspaces if not already
+          # ========================================"
+          python .\scripts\create_workspace.py --accessToken $accessToken.Authorization --workspaceName $workspaceName"[DEV]"
+          python .\scripts\create_workspace.py --accessToken $accessToken.Authorization --workspaceName $workspaceName"[TEST]"
+          python .\scripts\create_workspace.py --accessToken $accessToken.Authorization --workspaceName $workspaceName"[PROD]"
+
+          echo "
+          # ========================================
+          # Create pipeline if not already
+          # ========================================"
+          python .\scripts\create_pipeline.py --accessToken $accessToken.Authorization --pipelineName $pipelineName
+
+          echo "
+          # ========================================
+          # Assign workspaces to pipeline stages
+          # ========================================"
+          python .\scripts\assign_workspace_to_pipeline.py --accessToken $accessToken.Authorization --workspaceName $workspaceName"[DEV]" --pipelineName $pipelineName --stageOrder 0
+          python .\scripts\assign_workspace_to_pipeline.py --accessToken $accessToken.Authorization --workspaceName $workspaceName"[TEST]" --pipelineName $pipelineName --stageOrder 1
+          python .\scripts\assign_workspace_to_pipeline.py --accessToken $accessToken.Authorization --workspaceName $workspaceName"[PROD]" --pipelineName $pipelineName --stageOrder 2

@@ -34,6 +34,8 @@ response = requests.request("POST", url, headers=headers, data={
   }
 })
 
-print(response)
-print(response.content)
-print(url)
+if response.status_code in [200, 201, 202]:
+    print(f"Success! Response code: {response.status_code} \nResponse: {response.content} \n")
+else:
+    print(f"Something wrong! Response code: {response.status_code} \nResponse: {response.content} \n")
+    # raise Exception(response.content)
