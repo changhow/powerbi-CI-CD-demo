@@ -95,6 +95,7 @@ jobs:
           $url = "pipelines/{0}/deployAll" -f $pipeline.id
           $deployResult = Invoke-PowerBIRestMethod -Url $url  -Method Post -Body $body | ConvertFrom-Json
 
+          # wait for previous deployment to be ready
           sleep 60
           
           echo "
