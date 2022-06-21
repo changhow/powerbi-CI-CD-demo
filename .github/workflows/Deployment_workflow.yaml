@@ -3,7 +3,7 @@ on:
   push:
     branches: [main]
     paths:
-      - '.github/workflows/Development_workflow.yaml'
+      - '.github/workflows/Deployment_workflow.yaml'
 
 env:
   workspaceName: demoWorkspace
