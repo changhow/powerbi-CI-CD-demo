@@ -7,8 +7,8 @@ on:
       - 'scripts/**'
 
 env:
-  workspaceName: titanicWorkspace
-  pipelineName: titanicPipeline
+  workspaceName: demoWorkspace
+  pipelineName: demoPipeline
 
 name: Publish Files to Workspace
 

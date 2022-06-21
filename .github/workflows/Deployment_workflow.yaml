@@ -6,8 +6,8 @@ on:
       - '.github/workflows/stage_deployment_pipeline.yaml'
 
 env:
-  workspaceName: titanicWorkspace
-  pipelineName: titanicPipeline
+  workspaceName: demoWorkspace
+  pipelineName: demoPipeline
   sourceStageOrder: 1 # 0 - Deploy Dev to Test, 1 - Deploy Test to Prod
 
 name: Pipeline stage deployment

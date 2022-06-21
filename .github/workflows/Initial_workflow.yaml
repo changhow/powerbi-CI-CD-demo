@@ -2,8 +2,8 @@ on:
   workflow_dispatch:
 
 env:
-  workspaceName: titanicWorkspace
-  pipelineName: titanicPipeline
+  workspaceName: demoWorkspace
+  pipelineName: demoPipeline
 
 name: Create Workspaces and Pipeline
 
