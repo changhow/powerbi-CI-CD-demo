@@ -8,7 +8,7 @@ on:
 env:
   workspaceName: demoWorkspace
   pipelineName: demoPipeline
-  sourceStageOrder: 1 # 0 - Deploy Dev to Test, 1 - Deploy Test to Prod
+  sourceStageOrder: 0 # 0 - Deploy Dev to Test, 1 - Deploy Test to Prod
 
 name: Pipeline stage deployment
 
