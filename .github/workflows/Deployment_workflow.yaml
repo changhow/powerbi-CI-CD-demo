@@ -3,7 +3,7 @@ on:
   push:
     branches: [main]
     paths:
-      - '.github/workflows/stage_deployment_pipeline.yaml'
+      - '.github/workflows/Development_workflow.yaml'
 
 env:
   workspaceName: demoWorkspace
